@@ -19,6 +19,7 @@ ChatUI::ChatUI(QWidget *parent) : QWidget(parent)
     w_sendingPort->setMinimum(0);
     w_sendingPort->setMaximum(65535);
     w_setSendingAddress = new QPushButton(QString("Set"));
+    w_setSendingAddress->setEnabled(false);
 
     w_receivingAddress = new QLineEdit;
     w_receivingAddress->setValidator(ipValidator);
@@ -28,6 +29,7 @@ ChatUI::ChatUI(QWidget *parent) : QWidget(parent)
     w_receivingPort->setMaximum(65535);
     w_startReceiving = new QPushButton(QString("Start"));
     w_stopReceiving = new QPushButton(QString("Stop"));
+    w_stopReceiving->setEnabled(false);
 
     w_receivedMessagesEdit = new QTextEdit;
     w_receivedMessagesEdit->setReadOnly(true);
@@ -69,20 +71,26 @@ ChatUI::ChatUI(QWidget *parent) : QWidget(parent)
 
     connect(w_setSendingAddress, &QPushButton::clicked, this, &ChatUI::slotUiSetSendingSocketParameters);
     connect(w_sendButton, &QPushButton::clicked, this, &ChatUI::slotUiSendMessage);
+    connect(w_sendingPort, QOverload<int> :: of(&QSpinBox :: valueChanged), this, [this]() -> void {w_setSendingAddress->setEnabled(true);});
+    connect(w_sendingAddress, &QLineEdit :: textEdited, this, [this]()->void {w_setSendingAddress->setEnabled(true);});
 
     this->setLayout(mainLayout);
 
     m_udpReceiver = new UdpReceiver;
     connect(w_startReceiving, &QPushButton::clicked, this, &ChatUI::slotUiStartReceiving);
+    connect(w_startReceiving, &QPushButton :: clicked, this, [this]()->void {w_startReceiving->setEnabled(false); w_stopReceiving->setEnabled(true);});
     connect(w_stopReceiving, &QPushButton::clicked, m_udpReceiver, &UdpReceiver::stopWorkingThread);
+    connect(w_stopReceiving, &QPushButton :: clicked, this, [this]()->void {w_startReceiving->setEnabled(true); w_stopReceiving->setEnabled(false);});
     connect(m_udpReceiver, &UdpReceiver::signalMessageReceived, this, &ChatUI::slotUiReceivedMessage);
+
 }
 
 void ChatUI::slotUiSetSendingSocketParameters()
 {
     m_sendingUdpSocket->abort();
-    m_sendingUdpSocket->bind(QHostAddress(QString("192.168.0.57")), 1337);
+    m_sendingUdpSocket->bind(QHostAddress(w_sendingAddress->text()), w_sendingPort->value());
     m_sendingUdpSocket->open(QUdpSocket::ReadWrite);
+    w_setSendingAddress->setEnabled(false);
 }
 
 void ChatUI::slotUiSendMessage()
